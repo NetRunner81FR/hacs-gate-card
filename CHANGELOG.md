@@ -1,3 +1,13 @@
+﻿## v0.5.0-beta.3 (2026-05-30)
+
+### Added
+- Custom SVG icons (512x512): gate-closed, gate-open, gate-open-alert
+- PortailCard uses gate-closed (closed/blue), gate-open (open/green), gate-open-alert for both degraded states (unavailable/gray + open>30min/red)
+- PortailBadge: inline SVG in Shadow DOM replacing ha-icon dependency
+- Garage cards keep MDI icons
+
+---
+
 # Changelog - gate-card
 
 ## v0.5.0-beta.2 (2026-05-30)
@@ -50,3 +60,4 @@ No functional changes from v0.2. Transparent upgrade.
 
 - portail-card: gate controlled by switch + contact sensor
 - garage-switch-card: garage controlled by switch + contact sensor
+

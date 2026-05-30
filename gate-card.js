@@ -1,7 +1,8 @@
 // gate-card.js — Cartes et badge Lovelace pour portails / garages
 // Phase 2 : version sans nom de fichier, exposee dans window.customCards[*].version
 // Phase 3 : etat unavailable propre, badges pill, i18n fr/en, portail-badge
-const GATE_CARD_VERSION = "0.5.0-beta.2";
+// beta.3 : icones SVG custom portail (gate-closed / gate-open / gate-open-alert)
+const GATE_CARD_VERSION = "0.5.0-beta.3";
 
 // Debug : afficher ls/lu/lc (last seen / last update / last changed) en bas a droite
 const GATE_CARD_DEBUG = false;
@@ -38,6 +39,39 @@ function getLabels(hass) {
   const lang = (hass?.locale?.language || "fr").slice(0, 2).toLowerCase();
   return LABELS[lang] || LABELS.fr;
 }
+
+// ---------------------------------------------------------------------------
+// Icones SVG custom portail — viewBox 0 0 512 512
+// ---------------------------------------------------------------------------
+const GATE_SVG_PATHS = {
+  "gate-closed":
+    "M48 120a24 24 0 1 1 0 48a24 24 0 0 1 0-48m416 0a24 24 0 1 1 0 48a24 24 0 0 1 0-48" +
+    "M24 184h48v304H24V184m416 0h48v304h-48V184" +
+    "M88 216c44 0 92-80 160-80h16c68 0 116 80 160 80h8v16h-8v256h-16V226c-5-2-10-5-16-8v270" +
+    "h-16V209c-5-3-11-7-16-11v290h-16V186c-5-4-11-8-16-12v314h-16V163c-5-3-11-7-16-10v335" +
+    "h-16V144c-5-2-11-4-16-5v349h-16V139c-5 1-11 3-16 5v344h-16V153c-5 3-11 7-16 10v325" +
+    "h-16V174c-5 4-11 8-16 12v302h-16V198c-5 4-11 8-16 11v279h-16V218c-6 3-11 6-16 8v262" +
+    "H88V232h-8v-16h8M216 312h80v32h-80v-32m0 48h16v128h-16V360m32 0h16v128h-16V360m32 0h16v128h-16V360Z",
+
+  "gate-open":
+    "M48 120a24 24 0 1 1 0 48a24 24 0 0 1 0-48m416 0a24 24 0 1 1 0 48a24 24 0 0 1 0-48" +
+    "M24 184h48v304H24V184m416 0h48v304h-48V184" +
+    "M88 232c42-8 88-54 160-96v352h-16V168c-6 4-11 8-16 12v308h-16V192c-6 4-11 8-16 12v284" +
+    "h-16V216c-6 4-11 7-16 10v262h-16V237c-6 3-11 5-16 7v244h-16V249c-6 1-11 2-16 2V232" +
+    "m336 0v19c-5 0-10-1-16-2v239h-16V244c-5-2-10-4-16-7v251h-16V226c-5-3-10-6-16-10v272" +
+    "h-16V204c-5-4-10-8-16-12v296h-16V180c-5-4-10-8-16-12v320h-16V136c72 42 118 88 160 96" +
+    "M136 328h96v32h-96v-32m144 0h96v32h-96v-32Z",
+
+  "gate-open-alert":
+    "M48 120a24 24 0 1 1 0 48a24 24 0 0 1 0-48m416 0a24 24 0 1 1 0 48a24 24 0 0 1 0-48" +
+    "M24 184h48v304H24V184m416 0h48v192h-48V184" +
+    "M88 232c42-8 88-54 160-96v352h-16V168c-6 4-11 8-16 12v308h-16V192c-6 4-11 8-16 12v284" +
+    "h-16V216c-6 4-11 7-16 10v262h-16V237c-6 3-11 5-16 7v244h-16V249c-6 1-11 2-16 2V232" +
+    "m336 0v19c-5 0-10-1-16-2v127h-16V244c-5-2-10-4-16-7v139h-16V226c-5-3-10-6-16-10v160" +
+    "h-16V204c-5-4-10-8-16-12v184h-16V180c-5-4-10-8-16-12v320h-16V136c72 42 118 88 160 96" +
+    "M136 328h96v32h-96v-32" +
+    "m248 32a80 80 0 1 1 0 160a80 80 0 0 1 0-160m-12 32v72h24v-72h-24m0 88v24h24v-24h-24Z",
+};
 
 // Cherche la premiere entite disponible d'un domaine pour le stub du picker.
 function _stubFirst(hass, domain, keywords) {
@@ -119,13 +153,9 @@ class BaseGateCard extends HTMLElement {
     this._nameEl = nameEl;
     card.appendChild(nameEl);
 
-    // Icone centrale
-    const icon = document.createElement("ha-icon");
-    icon.style.setProperty("--mdc-icon-size", "clamp(40px, 8em, 120px)");
-    icon.style.width  = "var(--mdc-icon-size)";
-    icon.style.height = "var(--mdc-icon-size)";
-    icon.style.display = "block";
-    icon.style.margin  = "0";
+    // Icone centrale — div conteneur (SVG custom ou ha-icon MDI selon le type de carte)
+    const icon = document.createElement("div");
+    icon.style.cssText = "display:block;margin:0;width:clamp(40px,8em,120px);height:clamp(40px,8em,120px);flex-shrink:0;";
     this._icon = icon;
     card.appendChild(icon);
 
@@ -175,6 +205,28 @@ class BaseGateCard extends HTMLElement {
     this.appendChild(card);
   }
 
+  // Rendu de l'icone : SVG inline pour les icones custom, ha-icon pour MDI.
+  _setIconContent(iconKey, color) {
+    const svgPath = GATE_SVG_PATHS[iconKey];
+    if (svgPath) {
+      this._icon.innerHTML =
+        `<svg viewBox="0 0 512 512" style="width:100%;height:100%;display:block;" xmlns="http://www.w3.org/2000/svg">` +
+        `<path fill="${color}" d="${svgPath}"/></svg>`;
+    } else {
+      // ha-icon MDI (lazy init)
+      if (!this._icon._haIcon) {
+        this._icon.innerHTML = "";
+        const haIcon = document.createElement("ha-icon");
+        haIcon.style.setProperty("--mdc-icon-size", "clamp(40px,8em,120px)");
+        haIcon.style.cssText += "width:var(--mdc-icon-size);height:var(--mdc-icon-size);display:block;";
+        this._icon._haIcon = haIcon;
+        this._icon.appendChild(haIcon);
+      }
+      this._icon._haIcon.icon  = iconKey;
+      this._icon._haIcon.style.color = color;
+    }
+  }
+
   _updateCard() {
     if (!this._hass || !this._config || !this._card) return;
 
@@ -198,13 +250,15 @@ class BaseGateCard extends HTMLElement {
       contactEnt.state === "unavailable" ||
       contactEnt.state === "unknown";
 
+    const icons = this.constructor.icons || { closed: "mdi:gate", open: "mdi:gate-open", alert: "mdi:gate-open" };
+
     if (isUnavailable) {
-      this._icon.icon = "mdi:help-circle-outline";
-      this._icon.style.color = "var(--disabled-color, #9e9e9e)";
-      this._card.style.background = "rgba(158, 158, 158, 0.08)";
-      this._stateEl.textContent = labels.unavailable;
+      const unavailColor = "var(--disabled-color, #9e9e9e)";
+      this._setIconContent(icons.alert || icons.open, unavailColor);
+      this._card.style.background    = "rgba(158, 158, 158, 0.08)";
+      this._stateEl.textContent      = labels.unavailable;
       this._stateEl.style.background = "rgba(158, 158, 158, 0.18)";
-      this._stateEl.style.color      = "var(--disabled-color, #9e9e9e)";
+      this._stateEl.style.color      = unavailColor;
       if (this._offlineIcon) this._offlineIcon.style.display = "none";
       if (this._debugLastSeenEl) this._debugLastSeenEl.textContent = "";
       return;
@@ -217,35 +271,32 @@ class BaseGateCard extends HTMLElement {
     }
     const isLongOpen = openMinutes !== null && openMinutes >= 30;
 
-    const icons = this.constructor.icons || { closed: "mdi:gate", open: "mdi:gate-open" };
-
-    let etat, icon, iconColor, bgColor, pillBg, pillColor;
+    let etat, iconKey, iconColor, bgColor, pillBg, pillColor;
 
     if (contactEnt.state === "on" && isLongOpen) {
       etat      = labels.longOpen;
-      icon      = icons.open;
+      iconKey   = icons.alert || icons.open;
       iconColor = "var(--error-color, #f44336)";
       bgColor   = "rgba(244, 67, 54, 0.15)";
       pillBg    = "rgba(244, 67, 54, 0.22)";
       pillColor = "var(--error-color, #f44336)";
     } else if (contactEnt.state === "on") {
       etat      = labels.open;
-      icon      = icons.open;
+      iconKey   = icons.open;
       iconColor = "var(--success-color, var(--state-ok-color, #00c853))";
       bgColor   = "rgba(76, 175, 80, 0.15)";
       pillBg    = "rgba(76, 175, 80, 0.22)";
       pillColor = "var(--success-color, #00c853)";
     } else {
       etat      = labels.closed;
-      icon      = icons.closed;
+      iconKey   = icons.closed;
       iconColor = "var(--primary-color, #2196f3)";
       bgColor   = "rgba(33, 150, 243, 0.15)";
       pillBg    = "rgba(33, 150, 243, 0.22)";
       pillColor = "var(--primary-color, #2196f3)";
     }
 
-    this._icon.icon                = icon;
-    this._icon.style.color         = iconColor;
+    this._setIconContent(iconKey, iconColor);
     this._card.style.background    = bgColor;
     this._stateEl.textContent      = etat;
     this._stateEl.style.background = pillBg;
@@ -359,7 +410,7 @@ class PortailCard extends BaseGateCard {
   static get controlMode()     { return "switch"; }
   static get defaultName()     { return "Portail"; }
   static get prettyMainLabel() { return "switch portail"; }
-  static get icons()           { return { closed: "mdi:gate", open: "mdi:gate-open" }; }
+  static get icons()           { return { closed: "gate-closed", open: "gate-open", alert: "gate-open-alert" }; }
 
   static getConfigForm() {
     return {
@@ -390,7 +441,7 @@ class GarageSwitchCard extends BaseGateCard {
   static get controlMode()     { return "switch"; }
   static get defaultName()     { return "Garage"; }
   static get prettyMainLabel() { return "switch garage"; }
-  static get icons()           { return { closed: "mdi:garage", open: "mdi:garage-open" }; }
+  static get icons()           { return { closed: "mdi:garage", open: "mdi:garage-open", alert: "mdi:garage-open" }; }
 
   static getConfigForm() {
     return {
@@ -421,7 +472,7 @@ class GarageCoverCard extends BaseGateCard {
   static get controlMode()     { return "cover"; }
   static get defaultName()     { return "Garage"; }
   static get prettyMainLabel() { return "cover garage"; }
-  static get icons()           { return { closed: "mdi:garage", open: "mdi:garage-open" }; }
+  static get icons()           { return { closed: "mdi:garage", open: "mdi:garage-open", alert: "mdi:garage-open" }; }
 
   static getConfigForm() {
     return {
@@ -471,20 +522,16 @@ class PortailBadge extends HTMLElement {
           background: rgba(158, 158, 158, 0.15);
           color: var(--secondary-text-color, #9e9e9e);
         }
-        ha-icon {
-          --mdc-icon-size: 15px;
-          width: 15px;
-          height: 15px;
-          flex-shrink: 0;
-        }
+        .icon-wrap { width: 15px; height: 15px; flex-shrink: 0; display: flex; align-items: center; }
+        .icon-wrap svg { width: 100%; height: 100%; display: block; }
       </style>
       <div class="badge" part="badge">
-        <ha-icon></ha-icon>
+        <span class="icon-wrap"></span>
         <span class="label"></span>
       </div>
     `;
     this._badgeEl = shadow.querySelector(".badge");
-    this._iconEl  = shadow.querySelector("ha-icon");
+    this._iconEl  = shadow.querySelector(".icon-wrap");
     this._labelEl = shadow.querySelector(".label");
   }
 
@@ -519,29 +566,31 @@ class PortailBadge extends HTMLElement {
 
     if (isUnavailable) {
       label    = `${prefix} · ${labels.badgeUnavail}`;
-      iconName = "mdi:help-circle-outline";
+      iconName = "gate-open-alert";
       bg       = "rgba(158, 158, 158, 0.15)";
       color    = "var(--disabled-color, #9e9e9e)";
     } else if (alertEnt && alertEnt.state === "on") {
       label    = `${prefix} · ${labels.badgeLongOpen}`;
-      iconName = "mdi:gate-alert";
+      iconName = "gate-open-alert";
       bg       = "rgba(244, 67, 54, 0.15)";
       color    = "var(--error-color, #f44336)";
     } else if (contactEnt.state === "on") {
       label    = `${prefix} · ${labels.badgeOpen}`;
-      iconName = "mdi:gate-open";
+      iconName = "gate-open";
       bg       = "rgba(76, 175, 80, 0.15)";
       color    = "var(--success-color, #00c853)";
     } else {
       label    = `${prefix} · ${labels.badgeClosed}`;
-      iconName = "mdi:gate";
+      iconName = "gate-closed";
       bg       = "rgba(33, 150, 243, 0.15)";
       color    = "var(--primary-color, #2196f3)";
     }
 
     this._labelEl.textContent = label;
-    this._iconEl.setAttribute("icon", iconName);
-    this._iconEl.style.color  = color;
+    const svgPath = GATE_SVG_PATHS[iconName];
+    this._iconEl.innerHTML = svgPath
+      ? `<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><path fill="${color}" d="${svgPath}"/></svg>`
+      : "";
     this._badgeEl.style.background = bg;
     this._badgeEl.style.color      = color;
   }
