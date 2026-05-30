@@ -1,7 +1,7 @@
 // gate-card.js — Cartes et badge Lovelace pour portails / garages
 // Phase 2 : version sans nom de fichier, exposee dans window.customCards[*].version
 // Phase 3 : etat unavailable propre, badges pill, i18n fr/en, portail-badge
-const GATE_CARD_VERSION = "0.5.0-beta.1";
+const GATE_CARD_VERSION = "0.5.0-beta.2";
 
 // Debug : afficher ls/lu/lc (last seen / last update / last changed) en bas a droite
 const GATE_CARD_DEBUG = false;
@@ -37,6 +37,17 @@ const LABELS = {
 function getLabels(hass) {
   const lang = (hass?.locale?.language || "fr").slice(0, 2).toLowerCase();
   return LABELS[lang] || LABELS.fr;
+}
+
+// Cherche la premiere entite disponible d'un domaine pour le stub du picker.
+function _stubFirst(hass, domain, keywords) {
+  if (!hass?.states) return null;
+  const ids = Object.keys(hass.states).filter(id => id.startsWith(`${domain}.`));
+  if (keywords?.length) {
+    const hit = ids.find(id => keywords.some(k => id.includes(k)));
+    if (hit) return hit;
+  }
+  return ids[0] || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -361,8 +372,12 @@ class PortailCard extends BaseGateCard {
     };
   }
 
-  static getStubConfig() {
-    return { name: "Portail", switch_entity: "switch.portail", contact_entity: "binary_sensor.votre_contact" };
+  static getStubConfig(hass) {
+    return {
+      name: "Portail",
+      switch_entity:  _stubFirst(hass, "switch",  ["portail", "gate"])   || "switch.portail",
+      contact_entity: _stubFirst(hass, "binary_sensor", ["portail", "ouverture", "contact"]) || "binary_sensor.votre_contact",
+    };
   }
 }
 
@@ -388,8 +403,12 @@ class GarageSwitchCard extends BaseGateCard {
     };
   }
 
-  static getStubConfig() {
-    return { name: "Garage (switch)", switch_entity: "switch.garage", contact_entity: "binary_sensor.garage_contact" };
+  static getStubConfig(hass) {
+    return {
+      name: "Garage (switch)",
+      switch_entity:  _stubFirst(hass, "switch",  ["garage"])   || "switch.garage",
+      contact_entity: _stubFirst(hass, "binary_sensor", ["garage", "contact"]) || "binary_sensor.garage_contact",
+    };
   }
 }
 
@@ -415,8 +434,12 @@ class GarageCoverCard extends BaseGateCard {
     };
   }
 
-  static getStubConfig() {
-    return { name: "Garage (cover)", cover_entity: "cover.garage", contact_entity: "binary_sensor.garage_contact" };
+  static getStubConfig(hass) {
+    return {
+      name: "Garage (cover)",
+      cover_entity:   _stubFirst(hass, "cover",   ["garage"])   || "cover.garage",
+      contact_entity: _stubFirst(hass, "binary_sensor", ["garage", "contact"]) || "binary_sensor.garage_contact",
+    };
   }
 }
 

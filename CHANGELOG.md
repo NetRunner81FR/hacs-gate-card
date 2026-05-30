@@ -1,4 +1,4 @@
-# Changelog — gate-card
+﻿# Changelog â€” gate-card
 
 ## v0.5.0-beta.1 (2026-05-29)
 
@@ -43,3 +43,4 @@ No functional changes from v0.2. Transparent upgrade.
 
 - portail-card: gate controlled by switch + contact sensor
 - garage-switch-card: garage controlled by switch + contact sensor
+
