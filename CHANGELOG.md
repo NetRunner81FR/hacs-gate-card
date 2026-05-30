@@ -1,4 +1,11 @@
-﻿# Changelog â€” gate-card
+# Changelog - gate-card
+
+## v0.5.0-beta.2 (2026-05-30)
+
+### Fixed
+- getStubConfig(hass): uses first available real entities for picker preview (Portail, Garage switch, Garage cover). Falls back to static stubs if no matching entity found. Fixes "Indisponible" preview in Lovelace card picker when real entities exist.
+
+---
 
 ## v0.5.0-beta.1 (2026-05-29)
 
@@ -43,4 +50,3 @@ No functional changes from v0.2. Transparent upgrade.
 
 - portail-card: gate controlled by switch + contact sensor
 - garage-switch-card: garage controlled by switch + contact sensor
-
