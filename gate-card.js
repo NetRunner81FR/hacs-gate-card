@@ -1,8 +1,5 @@
 // gate-card.js — Cartes et badge Lovelace pour portails / garages
-// Phase 2 : version sans nom de fichier, exposee dans window.customCards[*].version
-// Phase 3 : etat unavailable propre, badges pill, i18n fr/en, portail-badge
-// beta.5 : changelog HACS corrige apres beta.4, metadata publication alignee
-const GATE_CARD_VERSION = "0.5.0-beta.5";
+const GATE_CARD_VERSION = "0.5.0";
 
 // Debug : afficher ls/lu/lc (last seen / last update / last changed) en bas a droite
 const GATE_CARD_DEBUG = false;
