@@ -1,48 +1,44 @@
 # Changelog
 
-## 0.5.0 (stable)
+## 1.0.0
 
-First stable release. Validated in production for over one week (beta.3 since 2026-06-01).
+First stable public release. Validated in production for over one week.
 
-### New cards
+### Components
 
-- **`portail-badge`** — observer-only pill badge for gates.
-  Shows open/closed/unavailable state. Accepts an optional `alert_entity` to
-  display a red alert when the gate has been open too long.
+- `custom:portail-card` — gate control (switch entity), custom SVG icons
+- `custom:garage-switch-card` — garage door control (switch entity)
+- `custom:garage-cover-card` — garage door control (cover entity)
+- `custom:portail-badge` — observer-only pill badge with optional alert state
 
-### Improvements to existing cards
+### Features
 
-- **Custom SVG icons** for `portail-card`: `gate-closed` (blue), `gate-open` (green),
-  `gate-open-alert` (grey when unavailable, red when open > threshold).
-- **`getStubConfig(hass)`** — dynamic entity discovery: the visual card editor
-  auto-fills the most relevant entities found in your Home Assistant instance.
-- **`offline_delay_minutes`** — configurable threshold (5–720 min) before an
-  unresponsive contact sensor triggers the alert icon.
-- **i18n fr/en** — labels adapt to your Home Assistant language setting.
-- **Pill badges** — compact state indicators with color coding.
+- **Custom SVG icons** for portail-card: gate-closed (blue), gate-open (green),
+  gate-open-alert (grey = unavailable, red = open beyond threshold).
+- **`alert_entity` for portail-badge** — optional binary sensor turns the badge
+  red when the gate has been open too long.
+- **Example package** (`examples/portail-package.yaml`) — ready-to-use HA
+  template sensor and optional notification automation.
+- **`getStubConfig(hass)`** — dynamic entity discovery for the visual card editor.
+- **`offline_delay_minutes`** — configurable threshold (5-720 min) before the
+  contact sensor triggers the offline/alert icon.
+- **i18n fr/en** — labels adapt to the HA language setting.
+- **Pill badges** with colour-coded state indicators.
+- **Visual editor** (`getConfigForm`) for all four components.
+- **HA 2026+ compatible** — uses `document.createElement` instead of the broken
+  `customElements.get()`.
 
-### Bug fixes
+### Breaking changes from v0.4.0
 
-- `customElements.get()` broken by `es-module-shims` in HA 2026+:
-  element registration now verified via `document.createElement` + constructor check.
-- `hacs.json`: `content_in_root` + `filename` both required together.
-- Garage cover card: offline indicator displayed correctly when cover entity
-  is unavailable (Tydom mock scenario).
-
-### Components registered
-
-| Tag | Type | Use |
-|-----|------|-----|
-| `portail-card` | card | Gate control (switch entity) |
-| `garage-switch-card` | card | Garage door control (switch entity) |
-| `garage-cover-card` | card | Garage door control (cover entity) |
-| `portail-badge` | badge | Observer-only gate state pill |
+None for existing card configurations. The `portail-badge` component and the
+`alert_entity` field are new additions.
 
 ---
 
 ## 0.4.0
 
-- Initial HACS release. Basic gate/garage card with open/closed state and manual control.
+Initial HACS release. Basic gate/garage card with open/closed state and manual
+control.
 
 ---
 

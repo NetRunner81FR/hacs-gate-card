@@ -1,5 +1,5 @@
 // gate-card.js — Cartes et badge Lovelace pour portails / garages
-const GATE_CARD_VERSION = "0.5.0";
+const GATE_CARD_VERSION = "1.0.0";
 
 // Debug : afficher ls/lu/lc (last seen / last update / last changed) en bas a droite
 const GATE_CARD_DEBUG = false;

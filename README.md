@@ -36,7 +36,7 @@ Control card for a gate driven by a switch entity.
 ```yaml
 type: custom:portail-card
 switch_entity: switch.portail     # required
-contact_entity: binary_sensor.portail_ouverture  # required
+contact_entity: binary_sensor.portail_contact  # required
 name: Portail                     # optional
 offline_delay_minutes: 30         # optional (5-720, default 60)
 ```
@@ -74,9 +74,9 @@ Use in the `badges:` section of your Lovelace view.
 
 ```yaml
 type: custom:portail-badge
-contact_entity: binary_sensor.portail_ouverture  # required
-alert_entity: binary_sensor.alerte_portail_ouvert_30_min  # optional
-name: Portail                     # optional (label prefix)
+contact_entity: binary_sensor.portail_contact  # required
+alert_entity: binary_sensor.gate_open_alert    # optional — see below
+name: Portail                                  # optional (label prefix)
 ```
 
 States displayed:
@@ -88,6 +88,39 @@ States displayed:
 | Alert | Red | Open longer than threshold |
 | Unavailable | Grey | Contact sensor not responding |
 
+### alert_entity — two options
+
+The `alert_entity` field expects a `binary_sensor` that is `on` when the gate
+has been open too long. It is optional: without it, the badge shows
+open/closed/unavailable but never turns red.
+
+**Option A — bring your own binary sensor**
+
+If you already have a template or automation that produces a suitable
+`binary_sensor`, point `alert_entity` at it directly.
+
+**Option B — use the example package**
+
+The file [`examples/portail-package.yaml`](examples/portail-package.yaml)
+creates a ready-to-use template sensor (`binary_sensor.gate_open_alert`) and
+an optional automation that sends a notification when the gate stays open.
+
+Copy the file into your HA `packages/` folder, edit the three placeholder
+values at the top, and reload Home Assistant:
+
+```yaml
+# portail-package.yaml — edit these three values
+YOUR_CONTACT_SENSOR  : binary_sensor.my_gate_contact
+YOUR_GARAGE_COVER    : cover.garage          # only if using garage-cover-card
+YOUR_ALERT_DURATION  : 30                    # minutes
+```
+
+> **Notification dependency** — the automation section of the example package
+> uses the
+> [Notifications Manager](https://github.com/NetRunner81FR/ha-notifications-manager)
+> integration. If you do not have it, simply remove or comment out the
+> `automation:` block. The template sensor and the badge work independently.
+
 ## Configuration fields
 
 | Field | Required | Description |
@@ -96,7 +129,7 @@ States displayed:
 | `cover_entity` | Yes (garage-cover) | Cover entity for the garage |
 | `contact_entity` | Yes (all) | Binary sensor reporting open/closed |
 | `name` | No | Display name |
-| `offline_delay_minutes` | No | Minutes before contact sensor triggers alert (5-720) |
+| `offline_delay_minutes` | No | Minutes before contact sensor triggers alert icon (5-720) |
 | `alert_entity` | No (badge only) | Binary sensor for long-open alert |
 
 ## Visual editor
@@ -107,7 +140,7 @@ The editor auto-fills entities via `getStubConfig(hass)`.
 ## HA 2026+ compatibility
 
 `customElements.get()` returns `undefined` due to `es-module-shims` wrapping.
-To verify registration in E2E tests, use `document.createElement`:
+To verify registration in E2E tests use `document.createElement`:
 
 ```javascript
 const el = document.createElement("portail-card");
