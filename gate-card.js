@@ -1,5 +1,5 @@
 // gate-card.js — Cartes et badge Lovelace pour portails / garages
-const GATE_CARD_VERSION = "1.0.0";
+const GATE_CARD_VERSION = "1.1.0";
 
 // Debug : afficher ls/lu/lc (last seen / last update / last changed) en bas a droite
 const GATE_CARD_DEBUG = false;
@@ -266,12 +266,16 @@ class BaseGateCard extends HTMLElement {
     if (contactEnt.state === "on" && contactEnt.last_changed) {
       openMinutes = (Date.now() - new Date(contactEnt.last_changed).getTime()) / 60000;
     }
-    const isLongOpen = openMinutes !== null && openMinutes >= 30;
+    const visualThreshold = this._config.visual_threshold_minutes ?? 30;
+    const isLongOpen = openMinutes !== null && openMinutes >= visualThreshold;
 
     let etat, iconKey, iconColor, bgColor, pillBg, pillColor;
 
     if (contactEnt.state === "on" && isLongOpen) {
-      etat      = labels.longOpen;
+      const lang = (this._hass?.locale?.language || "fr").slice(0, 2).toLowerCase();
+      etat = lang === "fr"
+        ? `❗Ouvert > ${Math.round(visualThreshold)} min`
+        : `❗Open > ${Math.round(visualThreshold)} min`;
       iconKey   = icons.alert || icons.open;
       iconColor = "var(--error-color, #f44336)";
       bgColor   = "rgba(244, 67, 54, 0.15)";
@@ -415,7 +419,8 @@ class PortailCard extends BaseGateCard {
         { name: "name",           label: "Nom (optionnel)",               selector: { text: {} } },
         { name: "switch_entity",  label: "Entité switch (commande)",      required: true,  selector: { entity: { domain: "switch" } } },
         { name: "contact_entity", label: "Capteur d'ouverture",           required: true,  selector: { entity: { domain: "binary_sensor" } } },
-        { name: "offline_delay_minutes", label: "Alerte capteur non vu (minutes)", selector: { number: { min: 5, max: 720, mode: "box" } } },
+        { name: "offline_delay_minutes",    label: "Alerte capteur non vu (min)",                                                        selector: { number: { min: 5, max: 720, mode: "box" } } },
+        { name: "visual_threshold_minutes", label: "Seuil alerte visuelle (min) — optionnel, remplace le défaut 30 min", selector: { number: { min: 1, max: 480, mode: "box" } } },
       ],
     };
   }
@@ -446,7 +451,8 @@ class GarageSwitchCard extends BaseGateCard {
         { name: "name",           label: "Nom (optionnel)",               selector: { text: {} } },
         { name: "switch_entity",  label: "Entité switch (commande)",      required: true,  selector: { entity: { domain: "switch" } } },
         { name: "contact_entity", label: "Capteur d'ouverture",           required: true,  selector: { entity: { domain: "binary_sensor" } } },
-        { name: "offline_delay_minutes", label: "Alerte capteur non vu (minutes)", selector: { number: { min: 5, max: 720, mode: "box" } } },
+        { name: "offline_delay_minutes",    label: "Alerte capteur non vu (min)",                                                        selector: { number: { min: 5, max: 720, mode: "box" } } },
+        { name: "visual_threshold_minutes", label: "Seuil alerte visuelle (min) — optionnel, remplace le défaut 30 min", selector: { number: { min: 1, max: 480, mode: "box" } } },
       ],
     };
   }
@@ -477,7 +483,8 @@ class GarageCoverCard extends BaseGateCard {
         { name: "name",           label: "Nom (optionnel)",               selector: { text: {} } },
         { name: "cover_entity",   label: "Cover du garage",               required: true,  selector: { entity: { domain: "cover" } } },
         { name: "contact_entity", label: "Capteur d'ouverture",           required: true,  selector: { entity: { domain: "binary_sensor" } } },
-        { name: "offline_delay_minutes", label: "Alerte capteur non vu (minutes)", selector: { number: { min: 5, max: 720, mode: "box" } } },
+        { name: "offline_delay_minutes",    label: "Alerte capteur non vu (min)",                                                        selector: { number: { min: 5, max: 720, mode: "box" } } },
+        { name: "visual_threshold_minutes", label: "Seuil alerte visuelle (min) — optionnel, remplace le défaut 30 min", selector: { number: { min: 1, max: 480, mode: "box" } } },
       ],
     };
   }
@@ -606,7 +613,7 @@ class PortailBadge extends HTMLElement {
     return {
       name:           "Portail",
       contact_entity: "binary_sensor.ouverture_portail1_contact",
-      alert_entity:   "binary_sensor.alerte_portail_1_ouvert_30_min",
+      alert_entity:   "binary_sensor.alerte_portail_1_seuil_visuel",
     };
   }
 }

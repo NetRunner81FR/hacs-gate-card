@@ -1,48 +1,29 @@
 # Changelog
 
+## 1.1.0
+
+- Seuil alerte visuelle configurable par tuile : parametre optionnel `visual_threshold_minutes` (portail-card, garage-switch-card, garage-cover-card).
+- Sans override, le seuil par defaut est 30 min (configurable globalement via `input_number.portail_seuil_visuel` avec le package exemple fourni).
+- Le label d'etat "Ouvert > X min" reflete le seuil effectif de chaque carte.
+- Ajout du champ `visual_threshold_minutes` dans l'editeur UI des 3 types de cartes.
+- Exemple de package HA `examples/portail-package-example.yaml` pour configuration globale optionnelle.
+
 ## 1.0.0
 
-First stable public release. Validated in production for over one week.
+- Release stable gate-card.
+- Composants : portail-card, garage-switch-card, garage-cover-card, portail-badge.
 
-### Components
+## 0.5.0-beta.5
 
-- `custom:portail-card` — gate control (switch entity), custom SVG icons
-- `custom:garage-switch-card` — garage door control (switch entity)
-- `custom:garage-cover-card` — garage door control (cover entity)
-- `custom:portail-badge` — observer-only pill badge with optional alert state
+- Correct HACS release notes after beta.4 publication.
+- Align Gate Card JavaScript version metadata with the published beta tag.
 
-### Features
+## 0.5.0-beta.4
 
-- **Custom SVG icons** for portail-card: gate-closed (blue), gate-open (green),
-  gate-open-alert (grey = unavailable, red = open beyond threshold).
-- **`alert_entity` for portail-badge** — optional binary sensor turns the badge
-  red when the gate has been open too long.
-- **Example package** (`examples/portail-package.yaml`) — ready-to-use HA
-  template sensor and optional notification automation.
-- **`getStubConfig(hass)`** — dynamic entity discovery for the visual card editor.
-- **`offline_delay_minutes`** — configurable threshold (5-720 min) before the
-  contact sensor triggers the offline/alert icon.
-- **i18n fr/en** — labels adapt to the HA language setting.
-- **Pill badges** with colour-coded state indicators.
-- **Visual editor** (`getConfigForm`) for all four components.
-- **HA 2026+ compatible** — uses `document.createElement` instead of the broken
-  `customElements.get()`.
+- Publish Gate Card through the secured beta GitHub publication workflow.
+- Add required README and CHANGELOG metadata for HACS beta release automation.
 
-### Breaking changes from v0.4.0
+## 0.5.0-beta.3
 
-None for existing card configurations. The `portail-badge` component and the
-`alert_entity` field are new additions.
-
----
-
-## 0.4.0
-
-Initial HACS release. Basic gate/garage card with open/closed state and manual
-control.
-
----
-
-## Earlier
-
-See [homeassistant-factory](https://git.famille-henrion.fr/NetRunner/homeassistant-factory)
-for full development history.
+- Prepare standalone HACS card staging.
+- Add required publication metadata files for beta release automation.

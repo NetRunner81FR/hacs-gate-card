@@ -1,0 +1,128 @@
+# gate-card — Exemple de package HA pour configuration globale des seuils
+#
+# OPTIONNEL. La gate-card fonctionne sans ce fichier (seuil visuel par defaut : 30 min).
+# Copiez ce fichier dans votre dossier packages/ pour configurer les seuils globalement
+# et recevoir des notifications quand un portail ou garage reste ouvert trop longtemps.
+#
+# Personnalisez les entites (binary_sensor.*, cover.*) selon votre installation.
+
+input_number:
+  portail_seuil_visuel:
+    name: "Portails - Seuil alerte visuelle"
+    min: 5
+    max: 120
+    step: 5
+    initial: 30
+    unit_of_measurement: min
+    icon: mdi:eye-settings-outline
+    mode: slider
+
+  portail_seuil_notification:
+    name: "Portails - Seuil alerte notification"
+    min: 10
+    max: 480
+    step: 10
+    initial: 120
+    unit_of_measurement: min
+    icon: mdi:timer-alert-outline
+    mode: slider
+
+template:
+  # Binary sensors d'alerte. Utilise time_pattern pour re-evaluer chaque minute
+  # et state pour reagir immediatement aux changements d'etat ou de seuil.
+  # Adaptez les entity_id a vos equipements.
+  - trigger:
+      - platform: time_pattern
+        minutes: "/1"
+      - platform: state
+        entity_id:
+          - binary_sensor.ouverture_portail1_contact   # adaptez
+          - cover.garage                               # adaptez
+          - input_number.portail_seuil_visuel
+          - input_number.portail_seuil_notification
+    binary_sensor:
+      - name: "Alerte Portail 1 Seuil Visuel"
+        unique_id: alerte_portail_1_seuil_visuel
+        device_class: problem
+        state: >
+          {% set dur = states('input_number.portail_seuil_visuel') | float(30) * 60 %}
+          {% if is_state('binary_sensor.ouverture_portail1_contact', 'on') %}
+            {{ (now() - states.binary_sensor.ouverture_portail1_contact.last_changed).total_seconds() >= dur }}
+          {% else %}false{% endif %}
+
+      - name: "Alerte Garage Seuil Visuel"
+        unique_id: alerte_garage_seuil_visuel
+        device_class: problem
+        state: >
+          {% set dur = states('input_number.portail_seuil_visuel') | float(30) * 60 %}
+          {% if is_state('cover.garage', 'open') %}
+            {{ (now() - states.cover.garage.last_changed).total_seconds() >= dur }}
+          {% else %}false{% endif %}
+
+      - name: "Alerte Portail 1 Seuil Notification"
+        unique_id: alerte_portail_1_seuil_notification
+        device_class: problem
+        state: >
+          {% set dur = states('input_number.portail_seuil_notification') | float(120) * 60 %}
+          {% if is_state('binary_sensor.ouverture_portail1_contact', 'on') %}
+            {{ (now() - states.binary_sensor.ouverture_portail1_contact.last_changed).total_seconds() >= dur }}
+          {% else %}false{% endif %}
+
+      - name: "Alerte Garage Seuil Notification"
+        unique_id: alerte_garage_seuil_notification
+        device_class: problem
+        state: >
+          {% set dur = states('input_number.portail_seuil_notification') | float(120) * 60 %}
+          {% if is_state('cover.garage', 'open') %}
+            {{ (now() - states.cover.garage.last_changed).total_seconds() >= dur }}
+          {% else %}false{% endif %}
+
+automation:
+  - id: portail_garage_ouvert_seuil_notification
+    alias: "Portails - Garage ouvert au-dela du seuil notification"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.alerte_garage_seuil_notification
+        to: "on"
+    action:
+      # Notification generique HA — remplacez par votre service de notification
+      - service: notify.notify
+        data:
+          title: "Garage ouvert"
+          message: >
+            Le garage est ouvert depuis plus de
+            {{ states('input_number.portail_seuil_notification') | int }} minutes.
+      # Variante notifications_manager (projet Factory) :
+      # - service: notifications_manager.notify
+      #   data:
+      #     title: "Garage ouvert"
+      #     message: >
+      #       Le garage est ouvert depuis plus de
+      #       {{ states('input_number.portail_seuil_notification') | int }} minutes.
+      #     category: alerte
+      #     module: portail
+
+  - id: portail_contact_ouvert_seuil_notification
+    alias: "Portails - Portail ouvert au-dela du seuil notification"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.alerte_portail_1_seuil_notification
+        to: "on"
+    action:
+      - service: notify.notify
+        data:
+          title: "Portail ouvert"
+          message: >
+            Le portail est ouvert depuis plus de
+            {{ states('input_number.portail_seuil_notification') | int }} minutes.
+      # Variante notifications_manager (projet Factory) :
+      # - service: notifications_manager.notify
+      #   data:
+      #     title: "Portail ouvert"
+      #     message: >
+      #       Le portail est ouvert depuis plus de
+      #       {{ states('input_number.portail_seuil_notification') | int }} minutes.
+      #     category: alerte
+      #     module: portail
