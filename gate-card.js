@@ -1,5 +1,5 @@
 // gate-card.js — Cartes et badge Lovelace pour portails / garages
-const GATE_CARD_VERSION = "1.1.0";
+const GATE_CARD_VERSION = "1.1.1-beta.1";
 
 // Debug : afficher ls/lu/lc (last seen / last update / last changed) en bas a droite
 const GATE_CARD_DEBUG = false;
@@ -14,6 +14,8 @@ const LABELS = {
     unavailable: "Indisponible",
     longOpen:    "❗Ouvert > 30 min",
     action:      "⚡ Action enregistrée",
+    failed:      "Échec de la commande",
+    unsupported: "Commande non supportée",
     badgeOpen:       "Ouvert",
     badgeClosed:     "Fermé",
     badgeLongOpen:   "Ouvert +30 min",
@@ -25,6 +27,8 @@ const LABELS = {
     unavailable: "Unavailable",
     longOpen:    "❗Open > 30 min",
     action:      "⚡ Action triggered",
+    failed:      "Command failed",
+    unsupported: "Unsupported command",
     badgeOpen:       "Open",
     badgeClosed:     "Closed",
     badgeLongOpen:   "Open > 30 min",
@@ -70,6 +74,32 @@ const GATE_SVG_PATHS = {
     "m248 32a80 80 0 1 1 0 160a80 80 0 0 1 0-160m-12 32v72h24v-72h-24m0 88v24h24v-24h-24Z",
 };
 
+// ---------------------------------------------------------------------------
+// Commande : service choisi selon le domaine de l'entite configuree (#214).
+// Un garage/portail Tydom "toggle-only" est expose en button (Press) : un seul
+// button.press. cover et switch gardent leur comportement historique.
+// ---------------------------------------------------------------------------
+const GATE_COMMAND_SERVICES = {
+  switch: ()      => "toggle",
+  button: ()      => "press",
+  cover:  (state) => (state === "open" ? "close_cover" : "open_cover"),
+};
+
+// Duree minimale du verrou anti double impulsion (ms).
+const GATE_COMMAND_LOCK_MS = 500;
+// Duree d'affichage d'un echec ou d'un domaine non supporte (ms).
+const GATE_COMMAND_ERROR_MS = 3000;
+
+function resolveGateCommand(entityId, state, allowedDomains) {
+  const domain = typeof entityId === "string" && entityId.includes(".")
+    ? entityId.split(".", 1)[0]
+    : "";
+  if (!allowedDomains.includes(domain) || !GATE_COMMAND_SERVICES[domain]) {
+    return { error: `domaine "${domain || "?"}" non supporte (attendu : ${allowedDomains.join(", ")})` };
+  }
+  return { domain, service: GATE_COMMAND_SERVICES[domain](state) };
+}
+
 // Cherche la premiere entite disponible d'un domaine pour le stub du picker.
 function _stubFirst(hass, domain, keywords) {
   if (!hass?.states) return null;
@@ -99,6 +129,7 @@ class BaseGateCard extends HTMLElement {
     this.innerHTML = "";
     this._card    = undefined;
     this._pending = false;
+    this._errorUntil = 0;
 
     const rawDelay = config.offline_delay_minutes;
     const parsed   = typeof rawDelay === "number" ? rawDelay : parseFloat(rawDelay);
@@ -239,7 +270,7 @@ class BaseGateCard extends HTMLElement {
       (controlEnt ? controlEnt.attributes.friendly_name : defaultName);
     this._nameEl.textContent = name;
 
-    if (this._pending) return;
+    if (this._pending || Date.now() < this._errorUntil) return;
 
     // --- etat unavailable / unknown (Phase 3a) ---
     const isUnavailable =
@@ -370,10 +401,18 @@ class BaseGateCard extends HTMLElement {
     const entityKey  = this.constructor.entityKey;
     const controlId  = this._config[entityKey];
     const controlEnt = this._hass.states[controlId];
-    const domain     = this.constructor.controlDomain || "switch";
-    const mode       = this.constructor.controlMode   || "switch";
+    const command    = resolveGateCommand(
+      controlId, controlEnt?.state, this.constructor.controlDomains
+    );
+
+    if (command.error) {
+      console.error(`gate-card: ${controlId} : ${command.error}, aucune commande envoyee`);
+      this._showError(labels.unsupported);
+      return;
+    }
 
     this._pending = true;
+    this._errorUntil = 0;
     this._stateEl.textContent      = labels.action;
     this._stateEl.style.background = "rgba(33, 150, 243, 0.18)";
     this._stateEl.style.color      = "var(--primary-color, #2196f3)";
@@ -381,20 +420,35 @@ class BaseGateCard extends HTMLElement {
     this._card.style.boxShadow     =
       "0 0 0 2px var(--primary-color, #2196f3), 0 4px 10px rgba(0,0,0,0.25)";
 
-    if (mode === "switch") {
-      this._hass.callService(domain, "toggle", { entity_id: controlId });
-    } else if (mode === "cover") {
-      const st = controlEnt?.state;
-      const svc = st === "open" ? "close_cover" : "open_cover";
-      this._hass.callService(domain, svc, { entity_id: controlId });
-    }
+    // Verrou tenu jusqu'a la fin de l'appel ET au moins GATE_COMMAND_LOCK_MS :
+    // aucun second envoi possible pendant un appel en cours.
+    let failed = false;
+    const call = Promise.resolve()
+      .then(() => this._hass.callService(command.domain, command.service, { entity_id: controlId }))
+      .catch((err) => {
+        failed = true;
+        console.error(`gate-card: ${command.domain}.${command.service} ${controlId} en echec`, err);
+      });
+    const minDelay = new Promise((resolve) => setTimeout(resolve, GATE_COMMAND_LOCK_MS));
 
-    setTimeout(() => {
+    return Promise.all([call, minDelay]).then(() => {
       this._pending = false;
       this._card.style.transform = "";
       this._card.style.boxShadow = "var(--ha-card-box-shadow, none)";
-      this._updateCard();
-    }, 500);
+      if (failed) {
+        this._showError(labels.failed);
+      } else {
+        this._updateCard();
+      }
+    });
+  }
+
+  _showError(text) {
+    this._errorUntil = Date.now() + GATE_COMMAND_ERROR_MS;
+    this._stateEl.textContent      = text;
+    this._stateEl.style.background = "rgba(244, 67, 54, 0.22)";
+    this._stateEl.style.color      = "var(--error-color, #f44336)";
+    setTimeout(() => this._updateCard(), GATE_COMMAND_ERROR_MS + 50);
   }
 
   static getCardSize() { return 1; }
@@ -407,8 +461,7 @@ BaseGateCard._styleInjected = false;
 // ---------------------------------------------------------------------------
 class PortailCard extends BaseGateCard {
   static get entityKey()       { return "switch_entity"; }
-  static get controlDomain()   { return "switch"; }
-  static get controlMode()     { return "switch"; }
+  static get controlDomains()  { return ["switch", "button"]; }
   static get defaultName()     { return "Portail"; }
   static get prettyMainLabel() { return "switch portail"; }
   static get icons()           { return { closed: "gate-closed", open: "gate-open", alert: "gate-open-alert" }; }
@@ -417,7 +470,7 @@ class PortailCard extends BaseGateCard {
     return {
       schema: [
         { name: "name",           label: "Nom (optionnel)",               selector: { text: {} } },
-        { name: "switch_entity",  label: "Entité switch (commande)",      required: true,  selector: { entity: { domain: "switch" } } },
+        { name: "switch_entity",  label: "Entité de commande (switch ou bouton)", required: true,  selector: { entity: { domain: ["switch", "button"] } } },
         { name: "contact_entity", label: "Capteur d'ouverture",           required: true,  selector: { entity: { domain: "binary_sensor" } } },
         { name: "offline_delay_minutes",    label: "Alerte capteur non vu (min)",                                                        selector: { number: { min: 5, max: 720, mode: "box" } } },
         { name: "visual_threshold_minutes", label: "Seuil alerte visuelle (min) — optionnel, remplace le défaut 30 min", selector: { number: { min: 1, max: 480, mode: "box" } } },
@@ -439,8 +492,7 @@ class PortailCard extends BaseGateCard {
 // ---------------------------------------------------------------------------
 class GarageSwitchCard extends BaseGateCard {
   static get entityKey()       { return "switch_entity"; }
-  static get controlDomain()   { return "switch"; }
-  static get controlMode()     { return "switch"; }
+  static get controlDomains()  { return ["switch", "button"]; }
   static get defaultName()     { return "Garage"; }
   static get prettyMainLabel() { return "switch garage"; }
   static get icons()           { return { closed: "mdi:garage", open: "mdi:garage-open", alert: "mdi:garage-open" }; }
@@ -449,7 +501,7 @@ class GarageSwitchCard extends BaseGateCard {
     return {
       schema: [
         { name: "name",           label: "Nom (optionnel)",               selector: { text: {} } },
-        { name: "switch_entity",  label: "Entité switch (commande)",      required: true,  selector: { entity: { domain: "switch" } } },
+        { name: "switch_entity",  label: "Entité de commande (switch ou bouton)", required: true,  selector: { entity: { domain: ["switch", "button"] } } },
         { name: "contact_entity", label: "Capteur d'ouverture",           required: true,  selector: { entity: { domain: "binary_sensor" } } },
         { name: "offline_delay_minutes",    label: "Alerte capteur non vu (min)",                                                        selector: { number: { min: 5, max: 720, mode: "box" } } },
         { name: "visual_threshold_minutes", label: "Seuil alerte visuelle (min) — optionnel, remplace le défaut 30 min", selector: { number: { min: 1, max: 480, mode: "box" } } },
@@ -471,8 +523,7 @@ class GarageSwitchCard extends BaseGateCard {
 // ---------------------------------------------------------------------------
 class GarageCoverCard extends BaseGateCard {
   static get entityKey()       { return "cover_entity"; }
-  static get controlDomain()   { return "cover"; }
-  static get controlMode()     { return "cover"; }
+  static get controlDomains()  { return ["cover", "button"]; }
   static get defaultName()     { return "Garage"; }
   static get prettyMainLabel() { return "cover garage"; }
   static get icons()           { return { closed: "mdi:garage", open: "mdi:garage-open", alert: "mdi:garage-open" }; }
@@ -481,7 +532,7 @@ class GarageCoverCard extends BaseGateCard {
     return {
       schema: [
         { name: "name",           label: "Nom (optionnel)",               selector: { text: {} } },
-        { name: "cover_entity",   label: "Cover du garage",               required: true,  selector: { entity: { domain: "cover" } } },
+        { name: "cover_entity",   label: "Commande du garage (cover ou bouton)", required: true,  selector: { entity: { domain: ["cover", "button"] } } },
         { name: "contact_entity", label: "Capteur d'ouverture",           required: true,  selector: { entity: { domain: "binary_sensor" } } },
         { name: "offline_delay_minutes",    label: "Alerte capteur non vu (min)",                                                        selector: { number: { min: 5, max: 720, mode: "box" } } },
         { name: "visual_threshold_minutes", label: "Seuil alerte visuelle (min) — optionnel, remplace le défaut 30 min", selector: { number: { min: 1, max: 480, mode: "box" } } },

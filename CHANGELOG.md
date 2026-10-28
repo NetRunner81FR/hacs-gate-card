@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1-beta.1
+
+- Fix #214 : la commande depend du domaine de l'entite configuree. Une entite `button`
+  (garage/portail Delta Dore Tydom toggle-only, ex. TYXIA 4620) recoit un seul `button.press`.
+- `cover` (open_cover/close_cover) et `switch` (toggle) inchanges ; aucune migration de config.
+- Domaine non supporte : message "Commande non supportée", aucune commande envoyee.
+- Anti double impulsion : verrou jusqu'a la fin de l'appel (minimum 500 ms) ; echec affiche.
+- Editeur UI : selecteurs d'entite de commande ouverts au domaine `button`.
+
 ## 1.1.0
 
 - Seuil alerte visuelle configurable par tuile : parametre optionnel `visual_threshold_minutes` (portail-card, garage-switch-card, garage-cover-card).

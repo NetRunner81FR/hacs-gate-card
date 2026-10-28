@@ -24,3 +24,26 @@ type: custom:gate-card
 entity: cover.gate
 name: Gate
 ```
+
+## Command entity
+
+The service is chosen from the domain of the configured command entity:
+
+| Domain | Service | Cards |
+| --- | --- | --- |
+| `switch` | `switch.toggle` | `portail-card`, `garage-switch-card` |
+| `cover` | `cover.open_cover` / `cover.close_cover` (from current state) | `garage-cover-card` |
+| `button` | `button.press` (single pulse) | all three cards |
+
+Delta Dore Tydom exposes toggle-only gates and garage doors (for example TYXIA 4620)
+as a `button` entity. Put that entity in the existing key, no migration needed:
+
+```yaml
+type: custom:garage-cover-card
+name: Garage
+cover_entity: button.garage
+contact_entity: binary_sensor.garage_contact
+```
+
+Any other domain shows "Commande non supportée" and sends nothing. A tap is ignored
+while a command is in progress (anti double pulse).
