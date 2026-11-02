@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- Version stable de 1.1.1-beta.1, sans changement de code. Validee en PROD sur le garage
+  reel apres une semaine de beta (GO PO 2026-11-02).
+- README reecrit : les 4 composants, toutes les options, commande par domaine, etats.
+
 ## 1.1.1-beta.1
 
 - Fix #214 : la commande depend du domaine de l'entite configuree. Une entite `button`
